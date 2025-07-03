@@ -410,10 +410,10 @@ export default function HomePage() {
     useEffect(() => {
       const interval = setInterval(() => {
         setDots((prev) => (prev.length < 3 ? prev + '.' : ''));
-      }, 400);
+      }, 900); // Cambiado de 400 a 900 para hacerlo más lento
       return () => clearInterval(interval);
     }, []);
-
+  
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
         <div className="bg-white rounded-lg shadow-lg p-8 flex flex-col items-center min-w-[300px]">
@@ -422,7 +422,6 @@ export default function HomePage() {
       </div>
     );
   }
-
   // Utilidad para saber si hay noticias de hoy (hora boliviana) usando created_at
   function hayNoticiasDeHoy() {
     const ahora = new Date();
