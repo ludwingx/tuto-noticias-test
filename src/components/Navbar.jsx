@@ -37,7 +37,7 @@ export default async function Navbar() {
                 </Link>
               </li>
               {/*
-              <li>
+              <li> 
                 <Link
                   href="/auth/register"
                   className="flex items-center gap-2 hover:text-[#da0b0a] transition-colors"
