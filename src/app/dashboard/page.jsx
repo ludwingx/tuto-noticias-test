@@ -204,34 +204,55 @@ export default function HomePage() {
       const margin = 40;
       let y = margin;
   
-      const logoUrl = "https://i.ibb.co/BVtY6hmb/image-4.png";
-      const logoHeight = 60;
-      const logoWidth = 340;
-      const logoBase64 = await getBase64ImageFromUrl(logoUrl);
+      // Cargar imágenes de cabecera desde URLs
+      const [logoIzquierda, logoCentro] = await Promise.all([
+        getBase64ImageFromUrl("https://i.postimg.cc/rFJtBVqs/Proyecto-nuevo-3.png"),
+        getBase64ImageFromUrl("https://i.postimg.cc/MZDMg3pY/Proyecto-nuevo-1.png")
+      ]);
   
-      if (logoBase64) {
+      // Altura máxima para la cabecera
+      const headerHeight = 80;
+  
+      // Agregar logo izquierdo
+      if (logoIzquierda) {
         doc.addImage(
-          logoBase64,
+          logoIzquierda,
           "PNG",
-          pageWidth / 2 - logoWidth / 2,
+          margin,
           y,
-          logoWidth,
-          logoHeight
+          100, // ancho
+          headerHeight // alto
         );
       }
-      y += logoHeight + 24;
   
+      // Agregar logo central
+      if (logoCentro) {
+        const centerImgWidth = 130;
+        doc.addImage(
+          logoCentro,
+          "PNG",
+          pageWidth / 2 - centerImgWidth / 2,
+          y,
+          centerImgWidth,
+          headerHeight
+        );
+      }
+  
+      y += headerHeight + 30; // Espacio después de la cabecera
+  
+      // Fecha y hora
       const fechaHora = new Date().toLocaleString("es-ES", {
         dateStyle: "full",
         timeStyle: "short",
       });
-      y += 30;
+      
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
       doc.setTextColor("#000000");
       doc.text(`Tuto Noticias - ${fechaHora}`, pageWidth / 2, y, { align: "center" });
       y += 30;
   
+      // Resto del código para agregar noticias (se mantiene igual)
       // Primera página: máximo 2 noticias
       let noticiasEnPrimeraPagina = Math.min(noticiasAprobadas.length, 2);
       let noticiasRestantes = noticiasAprobadas.length - noticiasEnPrimeraPagina;
@@ -387,7 +408,8 @@ export default function HomePage() {
       }
   
       const meses = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
       ];
       const fechaActual = new Date();
       const dia = fechaActual.getDate();
