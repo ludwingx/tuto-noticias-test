@@ -23,7 +23,7 @@ export default function HomePage() {
   const [actualizandoEstado, setActualizandoEstado] = useState({});
   const [contador, setContador] = useState(null);
   // Hora local para mostrar debajo del botón
-  const [horaLocal, setHoraLocal] = useState('');
+  const [horaLocal, setHoraLocal] = useState("");
   const [activeSection, setActiveSection] = useState("all");
 
   const handleSectionChange = (section) => {
@@ -108,14 +108,17 @@ export default function HomePage() {
     setWebhookError(null);
     try {
       const res = await fetch(
-        "https://n8n-torta-express.qnfmlx.easypanel.host/webhook/44ccd0ac-cab7-45f8-aa48-317e9400ca2d",
+        "https://n8n-torta-express.qnfmlx.easypanel.host/webhook-test/44ccd0ac-cab7-45f8-aa48-317e9400ca2d",
         {
           method: "POST",
         }
       );
       if (!res.ok) throw new Error("Error al ejecutar el webhook");
       // Esperar hasta que haya noticias nuevas
-      await esperarCambioNoticias((nuevasNoticias) => Array.isArray(nuevasNoticias) && nuevasNoticias.length > 0);
+      await esperarCambioNoticias(
+        (nuevasNoticias) =>
+          Array.isArray(nuevasNoticias) && nuevasNoticias.length > 0
+      );
     } catch (err) {
       setWebhookError("Error al ejecutar el flujo de N8N.");
       setWaiting(false);
@@ -143,12 +146,13 @@ export default function HomePage() {
       if (!res.ok) throw new Error("Error al actualizar estado");
       await res.json();
       // Esperar hasta que el estado de la noticia cambie en la tabla News
-      await esperarCambioNoticias(
-        (nuevasNoticias) => {
-          const noticiaActualizada = nuevasNoticias.find((n) => n.id === id);
-          return noticiaActualizada && noticiaActualizada.estado?.toLowerCase() === nuevoEstado.toLowerCase();
-        }
-      );
+      await esperarCambioNoticias((nuevasNoticias) => {
+        const noticiaActualizada = nuevasNoticias.find((n) => n.id === id);
+        return (
+          noticiaActualizada &&
+          noticiaActualizada.estado?.toLowerCase() === nuevoEstado.toLowerCase()
+        );
+      });
     } catch {
       alert("No se pudo actualizar el estado de la noticia.");
       setWaiting(false);
@@ -182,37 +186,42 @@ export default function HomePage() {
   async function generarBoletin() {
     setGenerando(true);
     setErrorGen(null);
-  
+
     try {
       const res = await fetch("/api/noticias");
-      if (!res.ok) throw new Error("Error al obtener noticias desde la base de datos");
+      if (!res.ok)
+        throw new Error("Error al obtener noticias desde la base de datos");
       const data = await res.json();
-  
+
       const noticiasAprobadas = data.filter(
         (n) => n.estado?.toLowerCase() === "aprobado"
       );
-  
+
       if (noticiasAprobadas.length === 0) {
         setErrorGen("No hay noticias aprobadas para generar el boletín.");
         setGenerando(false);
         return;
       }
-  
+
       const doc = new jsPDF({ unit: "pt", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 40;
       let y = margin;
-  
+
       // Cargar imágenes de cabecera desde URLs
       const [logoIzquierda, logoCentro] = await Promise.all([
-        getBase64ImageFromUrl("https://i.postimg.cc/rFJtBVqs/Proyecto-nuevo-3.png"),
-        getBase64ImageFromUrl("https://i.postimg.cc/MZDMg3pY/Proyecto-nuevo-1.png")
+        getBase64ImageFromUrl(
+          "https://i.postimg.cc/rFJtBVqs/Proyecto-nuevo-3.png"
+        ),
+        getBase64ImageFromUrl(
+          "https://i.postimg.cc/MZDMg3pY/Proyecto-nuevo-1.png"
+        ),
       ]);
-  
+
       // Altura máxima para la cabecera
-      const headerHeight = 80;
-  
+      const headerHeight = 35;
+
       // Agregar logo izquierdo
       if (logoIzquierda) {
         doc.addImage(
@@ -224,53 +233,56 @@ export default function HomePage() {
           headerHeight // alto
         );
       }
-  
+
       // Agregar logo central
       if (logoCentro) {
-        const centerImgWidth = 130;
+        const centerImgWidth = 110;
+        const ajusteManual = -10; // mueve hacia la izquierda si está muy a la derecha, o pon -5 si está a la izquierda
         doc.addImage(
           logoCentro,
           "PNG",
-          pageWidth / 2 - centerImgWidth / 2,
+          pageWidth / 2 - centerImgWidth / 2 + ajusteManual,
           y,
           centerImgWidth,
           headerHeight
         );
       }
-  
+
       y += headerHeight + 30; // Espacio después de la cabecera
-  
+
       // Fecha y hora
       const fechaHora = new Date().toLocaleString("es-ES", {
         dateStyle: "full",
         timeStyle: "short",
       });
-      
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
       doc.setTextColor("#000000");
-      doc.text(`Tuto Noticias - ${fechaHora}`, pageWidth / 2, y, { align: "center" });
+      doc.text(`Tuto Noticias - ${fechaHora}`, pageWidth / 2, y, {
+        align: "center",
+      });
       y += 30;
-  
+
       // Resto del código para agregar noticias (se mantiene igual)
       // Primera página: máximo 2 noticias
       let noticiasEnPrimeraPagina = Math.min(noticiasAprobadas.length, 2);
-      let noticiasRestantes = noticiasAprobadas.length - noticiasEnPrimeraPagina;
-  
+      let noticiasRestantes =
+        noticiasAprobadas.length - noticiasEnPrimeraPagina;
+
       // Procesar primera página (2 noticias)
       for (let i = 0; i < noticiasEnPrimeraPagina; i++) {
         const noticia = noticiasAprobadas[i];
-        const boxHeight = 240;
-  
         const boxWidth = pageWidth - margin * 2;
+        const padding = 15;
+      
+        let boxStartY = y;
+        let cursorY = boxStartY + padding;
+      
         doc.setDrawColor("#e0e0e0");
         doc.setFillColor("#ffffff");
         doc.setLineWidth(1);
-        doc.roundedRect(margin, y, boxWidth, boxHeight, 6, 6, "FD");
-  
-        const padding = 15;
-        let cursorY = y + padding;
-  
+      
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor("#000000");
@@ -278,14 +290,15 @@ export default function HomePage() {
         const metaText = `${fechaPub} | Autor: ${noticia.autor || "Desconocido"}`;
         doc.text(metaText, margin + padding, cursorY);
         cursorY += 18;
-  
+      
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
         doc.setTextColor("#12358d");
         const titleLines = doc.splitTextToSize(noticia.titulo, boxWidth - padding * 2);
         doc.text(titleLines, margin + padding, cursorY);
         cursorY += titleLines.length * 18;
-  
+      
+
         if (noticia.imagen) {
           const imgData = await getBase64ImageFromUrl(noticia.imagen);
           if (imgData) {
@@ -301,71 +314,106 @@ export default function HomePage() {
               imgWidth = imgHeight / ratio;
             }
             doc.setFillColor("#fff");
-            doc.roundedRect(margin + padding - 2, cursorY - 2, imgWidth + 4, imgHeight + 4, 4, 4, "F");
-            doc.addImage(imgData, "PNG", margin + padding, cursorY, imgWidth, imgHeight);
+            doc.roundedRect(
+              margin + padding - 2,
+              cursorY - 2,
+              imgWidth + 4,
+              imgHeight + 4,
+              4,
+              4,
+              "F"
+            );
+            doc.addImage(
+              imgData,
+              "PNG",
+              margin + padding,
+              cursorY,
+              imgWidth,
+              imgHeight
+            );
             cursorY += imgHeight + 10;
           }
         }
-  
+
         doc.setFont("helvetica", "italic");
         doc.setFontSize(11);
         doc.setTextColor("#000000");
-        const resumenMostrar = noticia.resumenIA || noticia.resumen || "";
-        const resumenLines = doc.splitTextToSize(resumenMostrar, boxWidth - padding * 2);
+        const resumenMostrar = noticia.resumen_ia || noticia.resumen || "";
+        const resumenLines = doc.splitTextToSize(
+          resumenMostrar,
+          boxWidth - padding * 2
+        );
         doc.text(resumenLines, margin + padding, cursorY);
-        cursorY += resumenLines.length * 16;
-  
+        cursorY += resumenLines.length * 14;
+
         doc.setFont("helvetica", "normal");
         doc.setFontSize(11);
         doc.setTextColor("#da0b0a");
         doc.textWithLink("Leer más", margin + padding, cursorY, {
           url: noticia.url || "#",
         });
-  
-        y += boxHeight + 15;
+        cursorY += 20;
+
+        // Calcular la altura real de la caja y dibujar el fondo
+        const boxHeightReal = cursorY - boxStartY + padding;
+        doc.roundedRect(margin, boxStartY, boxWidth, boxHeightReal, 6, 6, "S");
+
+        // Actualizar y con espacio entre noticias
+        y = boxStartY + boxHeightReal + 20;
       }
-  
+
       // Si hay más noticias, crear nuevas páginas con 3 noticias cada una
       if (noticiasRestantes > 0) {
         let noticiasEnPagina = 0;
         doc.addPage();
         y = margin;
-      
-        for (let i = noticiasEnPrimeraPagina; i < noticiasAprobadas.length; i++) {
+
+        for (
+          let i = noticiasEnPrimeraPagina;
+          i < noticiasAprobadas.length;
+          i++
+        ) {
           const noticia = noticiasAprobadas[i];
           const boxHeight = 260;
-      
+
           // Si ya hay 3 noticias en la página, crear nueva página
           if (noticiasEnPagina === 3) {
             doc.addPage();
             y = margin;
             noticiasEnPagina = 0;
           }
-      
+
           const boxWidth = pageWidth - margin * 2;
           doc.setDrawColor("#e0e0e0");
           doc.setFillColor("#ffffff");
           doc.setLineWidth(1);
           doc.roundedRect(margin, y, boxWidth, boxHeight, 6, 6, "FD");
-      
+
           const padding = 15;
           let cursorY = y + padding;
-      
+
           doc.setFont("helvetica", "normal");
           doc.setFontSize(10);
           doc.setTextColor("#000000");
-          const fechaPub = new Date(noticia.fecha_publicacion).toLocaleDateString();
-          const metaText = `${fechaPub} | Autor: ${noticia.autor || "Desconocido"}`;
+          const fechaPub = new Date(
+            noticia.fecha_publicacion
+          ).toLocaleDateString();
+          const metaText = `${fechaPub} | Autor: ${
+            noticia.autor || "Desconocido"
+          }`;
           doc.text(metaText, margin + padding, cursorY);
           cursorY += 18;
-      
+
           doc.setFont("helvetica", "bold");
           doc.setFontSize(13);
           doc.setTextColor("#12358d");
-          const titleLines = doc.splitTextToSize(noticia.titulo, boxWidth - padding * 2);
+          const titleLines = doc.splitTextToSize(
+            noticia.titulo,
+            boxWidth - padding * 2
+          );
           doc.text(titleLines, margin + padding, cursorY);
           cursorY += titleLines.length * 18;
-      
+
           if (noticia.imagen) {
             const imgData = await getBase64ImageFromUrl(noticia.imagen);
             if (imgData) {
@@ -381,42 +429,70 @@ export default function HomePage() {
                 imgWidth = imgHeight / ratio;
               }
               doc.setFillColor("#fff");
-              doc.roundedRect(margin + padding - 2, cursorY - 2, imgWidth + 4, imgHeight + 4, 4, 4, "F");
-              doc.addImage(imgData, "PNG", margin + padding, cursorY, imgWidth, imgHeight);
+              doc.roundedRect(
+                margin + padding - 2,
+                cursorY - 2,
+                imgWidth + 4,
+                imgHeight + 4,
+                4,
+                4,
+                "F"
+              );
+              doc.addImage(
+                imgData,
+                "PNG",
+                margin + padding,
+                cursorY,
+                imgWidth,
+                imgHeight
+              );
               cursorY += imgHeight + 10;
             }
           }
-      
+
           doc.setFont("helvetica", "italic");
           doc.setFontSize(11);
           doc.setTextColor("#000000");
-          const resumenMostrar = noticia.resumenIA || noticia.resumen || "";
-          const resumenLines = doc.splitTextToSize(resumenMostrar, boxWidth - padding * 2);
+          const resumenMostrar = noticia.resumen_ia || noticia.resumen || "";
+          const resumenLines = doc.splitTextToSize(
+            resumenMostrar,
+            boxWidth - padding * 2
+          );
           doc.text(resumenLines, margin + padding, cursorY);
           cursorY += resumenLines.length * 16;
-      
+
           doc.setFont("helvetica", "normal");
           doc.setFontSize(11);
           doc.setTextColor("#da0b0a");
           doc.textWithLink("Leer más", margin + padding, cursorY, {
             url: noticia.url || "#",
           });
-      
+
           y += boxHeight + 5;
           noticiasEnPagina++;
         }
       }
-  
+
       const meses = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
       ];
       const fechaActual = new Date();
       const dia = fechaActual.getDate();
       const sufijo = dia === 1 ? "ro" : "";
       const mes = meses[fechaActual.getMonth()];
       const nombrePDF = `TutoNoticias-${dia}${sufijo} de ${mes}`;
-  
+
       doc.save(`${nombrePDF}.pdf`);
     } catch (e) {
       console.error(e);
@@ -428,18 +504,20 @@ export default function HomePage() {
 
   // Modal de espera
   function ModalEspera() {
-    const [dots, setDots] = useState('');
+    const [dots, setDots] = useState("");
     useEffect(() => {
       const interval = setInterval(() => {
-        setDots((prev) => (prev.length < 3 ? prev + '.' : ''));
+        setDots((prev) => (prev.length < 3 ? prev + "." : ""));
       }, 900); // Cambiado de 400 a 900 para hacerlo más lento
       return () => clearInterval(interval);
     }, []);
-  
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
         <div className="bg-white rounded-lg shadow-lg p-8 flex flex-col items-center min-w-[300px]">
-          <span className="text-lg font-semibold mb-2">Buscando noticias{dots}</span>
+          <span className="text-lg font-semibold mb-2">
+            Buscando noticias{dots}
+          </span>
         </div>
       </div>
     );
@@ -448,25 +526,37 @@ export default function HomePage() {
   function hayNoticiasDeHoy() {
     const ahora = new Date();
     // Hora boliviana UTC-4
-    const ahoraBolivia = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const ahoraBolivia = new Date(
+      ahora.toLocaleString("en-US", { timeZone: "America/La_Paz" })
+    );
     const yyyy = ahoraBolivia.getFullYear();
     const mm = ahoraBolivia.getMonth();
     const dd = ahoraBolivia.getDate();
-    return noticias.some(n => {
+    return noticias.some((n) => {
       if (!n.created_at) return false;
       const fecha = new Date(n.created_at);
-      const fechaBolivia = new Date(fecha.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
-      return fechaBolivia.getFullYear() === yyyy && fechaBolivia.getMonth() === mm && fechaBolivia.getDate() === dd;
+      const fechaBolivia = new Date(
+        fecha.toLocaleString("en-US", { timeZone: "America/La_Paz" })
+      );
+      return (
+        fechaBolivia.getFullYear() === yyyy &&
+        fechaBolivia.getMonth() === mm &&
+        fechaBolivia.getDate() === dd
+      );
     });
   }
 
   // hooks y lógica de noticias filtradas
   // Separar noticias por categoría usando el campo 'categoria'
-  const noticiasTuto = noticias.filter(n => (n.categoria || '').toUpperCase() === 'TUTO');
-  const noticiasJP = noticias.filter(n => (n.categoria || '').toUpperCase() === 'JP');
-  const noticiasOtros = noticias.filter(n => {
-    const cat = (n.categoria || '').toUpperCase();
-    return cat !== 'TUTO' && cat !== 'JP';
+  const noticiasTuto = noticias.filter(
+    (n) => (n.categoria || "").toUpperCase() === "TUTO"
+  );
+  const noticiasJP = noticias.filter(
+    (n) => (n.categoria || "").toUpperCase() === "JP"
+  );
+  const noticiasOtros = noticias.filter((n) => {
+    const cat = (n.categoria || "").toUpperCase();
+    return cat !== "TUTO" && cat !== "JP";
   });
 
   const noticiasFiltradas = noticias;
@@ -478,7 +568,7 @@ export default function HomePage() {
     let interval;
     function updateContador() {
       if (yaExtrajoHoy) {
-        setContador(getTiempoRestanteHasta8amSiguiente());
+        setContador(getTiempoRestanteHasta830amSiguiente());
       } else {
         setContador(null);
       }
@@ -496,7 +586,9 @@ export default function HomePage() {
   function getTiempoRestanteHasta8amSiguiente() {
     const ahora = new Date();
     // Hora boliviana UTC-4
-    const ahoraBolivia = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const ahoraBolivia = new Date(
+      ahora.toLocaleString("en-US", { timeZone: "America/La_Paz" })
+    );
     let siguiente8 = new Date(ahoraBolivia);
     siguiente8.setHours(8, 0, 0, 0); // 8:00 am
     if (ahoraBolivia >= siguiente8) {
@@ -514,11 +606,14 @@ export default function HomePage() {
   function getTiempoRestanteHasta830amSiguiente() {
     const ahora = new Date();
     // Hora boliviana UTC-4
-    const ahoraBolivia = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const ahoraBolivia = new Date(
+      ahora.toLocaleString("en-US", { timeZone: "America/La_Paz" })
+    );
     let siguiente830 = new Date(ahoraBolivia);
     siguiente830.setHours(8, 30, 0, 0);
+
+    // Si ya pasó hoy a las 8:30, sumar un día
     if (ahoraBolivia >= siguiente830) {
-      // Si ya pasó hoy a las 8:30, sumar un día
       siguiente830.setDate(siguiente830.getDate() + 1);
     }
     const diff = siguiente830 - ahoraBolivia;
@@ -540,7 +635,9 @@ export default function HomePage() {
     return (
       <main className="min-h-[70vh] flex flex-col justify-center items-center px-4 py-10 bg-white max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Noticias recientes</h1>
-        <p className="text-gray-500 text-lg mb-6">No hay noticias disponibles.</p>
+        <p className="text-gray-500 text-lg mb-6">
+          No hay noticias disponibles.
+        </p>
         <button
           onClick={ejecutarWebhook}
           disabled={ejecutandoWebhook || waiting || hayNoticias}
@@ -548,13 +645,22 @@ export default function HomePage() {
         >
           {ejecutandoWebhook || waiting
             ? "Ejecutando..."
-            : (hayNoticias && contador !== null)
-              ? `Disponible en ${contador && contador.horas.toString().padStart(2, '0')}:${contador && contador.minutos.toString().padStart(2, '0')}:${contador && contador.segundos.toString().padStart(2, '0')}`
-              : "Cargar Noticias"}
+            : hayNoticias && contador !== null
+            ? `Disponible en ${contador.horas
+                .toString()
+                .padStart(2, "0")}:${contador.minutos
+                .toString()
+                .padStart(2, "0")}:${contador.segundos
+                .toString()
+                .padStart(2, "0")}`
+            : "Cargar Noticias"}
         </button>
         <p className="text-gray-400 mt-2 text-sm">Hora local: {horaLocal}</p>
         {hayNoticias && contador !== null && (
-          <p className="text-yellow-600 mt-4">Ya se extrajeron noticias. Podrás volver a cargar a las 8:30 am de mañana.</p>
+          <p className="text-yellow-600 mt-4">
+            Ya se extrajeron noticias. Podrás volver a cargar a las 8:30 am de
+            mañana.
+          </p>
         )}
         {webhookError && <p className="text-red-600 mt-4">{webhookError}</p>}
         {showModal && <ModalEspera />}
@@ -589,26 +695,30 @@ export default function HomePage() {
           >
             {ejecutandoWebhook || waiting
               ? "Ejecutando..."
-              : (hayNoticias && contador !== null)
-                ? `Disponible en ${contador && contador.horas.toString().padStart(2, '0')}:${contador && contador.minutos.toString().padStart(2, '0')}:${contador && contador.segundos.toString().padStart(2, '0')}`
-                : "Cargar Noticias"}
+              : hayNoticias && contador !== null
+              ? `Disponible en ${
+                  contador && contador.horas.toString().padStart(2, "0")
+                }:${contador && contador.minutos.toString().padStart(2, "0")}:${
+                  contador && contador.segundos.toString().padStart(2, "0")
+                }`
+              : "Cargar Noticias"}
           </button>
         </div>
       </h1>
 
       <div className="flex items-center gap-2 mb-6">
-  <span className="text-gray-600 text-sm font-medium">Filtrar por:</span>
-  <select
-    value={activeSection}
-    onChange={e => handleSectionChange(e.target.value)}
-    className="ml-2 px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
-  >
-    <option value="all">Todas</option>
-    <option value="tuto">Tuto Quiroga</option>
-    <option value="jp">Juan Pablo Velasco</option>
-    <option value="otros">Otras Noticias</option>
-  </select>
-</div>
+        <span className="text-gray-600 text-sm font-medium">Filtrar por:</span>
+        <select
+          value={activeSection}
+          onChange={(e) => handleSectionChange(e.target.value)}
+          className="ml-2 px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+        >
+          <option value="all">Todas</option>
+          <option value="tuto">Tuto Quiroga</option>
+          <option value="jp">Juan Pablo Velasco</option>
+          <option value="otros">Otras Noticias</option>
+        </select>
+      </div>
 
       {errorGen && <p className="text-red-600 mb-4">{errorGen}</p>}
       {webhookError && <p className="text-red-600 mb-4">{webhookError}</p>}
@@ -616,7 +726,9 @@ export default function HomePage() {
       {/* Noticias TUTO */}
       {activeSection === "all" || activeSection === "tuto" ? (
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4 text-[#123488]">Noticias de: Tuto Quiroga</h2>
+          <h2 className="text-xl font-bold mb-4 text-[#123488]">
+            Noticias de: Tuto Quiroga
+          </h2>
           {noticiasTuto.length > 0 ? (
             <div className="grid gap-6">
               {noticiasTuto.map((noticia) => {
@@ -631,11 +743,18 @@ export default function HomePage() {
                     key={noticia.id}
                     className="border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition flex flex-col h-full"
                   >
-                    <h2 className="text-lg sm:text-xl font-semibold mb-1">{noticia.titulo}</h2>
+                    <h2 className="text-lg sm:text-xl font-semibold mb-1">
+                      {noticia.titulo}
+                    </h2>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2">
                       Publicado por{" "}
-                      <span className="font-medium">{noticia.autor || "Desconocido"}</span> el{" "}
-                      {new Date(noticia.fecha_publicacion ?? "").toLocaleDateString()}
+                      <span className="font-medium">
+                        {noticia.autor || "Desconocido"}
+                      </span>{" "}
+                      el{" "}
+                      {new Date(
+                        noticia.fecha_publicacion ?? ""
+                      ).toLocaleDateString()}
                     </p>
 
                     {noticia.imagen && (
@@ -649,8 +768,14 @@ export default function HomePage() {
                         />
                       </div>
                     )}
+                    {/* <!-- Resumen de IA TITLE --> */}
+                    <h3 className="text-sm sm:text-base font-semibold mb-2">
+                      Resumen IA
+                    </h3>
 
-                    <p className="text-sm sm:text-base text-gray-700 flex-1">{noticia.resumen}</p>
+                    <p className="text-sm sm:text-base text-gray-700 flex-1">
+                      {noticia.resumen_ia}
+                    </p>
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 gap-2">
                       <a
@@ -669,7 +794,11 @@ export default function HomePage() {
                             estadoActual === "aprobado"
                               ? "bg-green-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-green-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCheckCircle className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Aprobar"}
@@ -681,7 +810,11 @@ export default function HomePage() {
                             estadoActual === "rechazado"
                               ? "bg-red-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-red-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCancel className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Rechazar"}
@@ -693,7 +826,9 @@ export default function HomePage() {
               })}
             </div>
           ) : (
-            <p className="text-gray-500">Hoy no hay noticias de Tuto Quiroga.</p>
+            <p className="text-gray-500">
+              Hoy no hay noticias de Tuto Quiroga.
+            </p>
           )}
           <hr className="border-t border-gray-300 mt-6" />
         </div>
@@ -702,7 +837,9 @@ export default function HomePage() {
       {/* Noticias JP */}
       {activeSection === "all" || activeSection === "jp" ? (
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4 text-[#da0b0a]">Noticias de: Juan Pablo Velasco</h2>
+          <h2 className="text-xl font-bold mb-4 text-[#da0b0a]">
+            Noticias de: Juan Pablo Velasco
+          </h2>
           {noticiasJP.length > 0 ? (
             <div className="grid gap-6">
               {noticiasJP.map((noticia) => {
@@ -717,11 +854,18 @@ export default function HomePage() {
                     key={noticia.id}
                     className="border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition flex flex-col h-full"
                   >
-                    <h2 className="text-lg sm:text-xl font-semibold mb-1">{noticia.titulo}</h2>
+                    <h2 className="text-lg sm:text-xl font-semibold mb-1">
+                      {noticia.titulo}
+                    </h2>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2">
                       Publicado por{" "}
-                      <span className="font-medium">{noticia.autor || "Desconocido"}</span> el{" "}
-                      {new Date(noticia.fecha_publicacion ?? "").toLocaleDateString()}
+                      <span className="font-medium">
+                        {noticia.autor || "Desconocido"}
+                      </span>{" "}
+                      el{" "}
+                      {new Date(
+                        noticia.fecha_publicacion ?? ""
+                      ).toLocaleDateString()}
                     </p>
 
                     {noticia.imagen && (
@@ -736,7 +880,9 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    <p className="text-sm sm:text-base text-gray-700 flex-1">{noticia.resumen}</p>
+                    <p className="text-sm sm:text-base text-gray-700 flex-1">
+                      {noticia.resumen_ia}
+                    </p>
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 gap-2">
                       <a
@@ -755,7 +901,11 @@ export default function HomePage() {
                             estadoActual === "aprobado"
                               ? "bg-green-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-green-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCheckCircle className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Aprobar"}
@@ -767,7 +917,11 @@ export default function HomePage() {
                             estadoActual === "rechazado"
                               ? "bg-red-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-red-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCancel className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Rechazar"}
@@ -779,7 +933,9 @@ export default function HomePage() {
               })}
             </div>
           ) : (
-            <p className="text-gray-500">Hoy no hay noticias de Juan Pablo Velasco.</p>
+            <p className="text-gray-500">
+              Hoy no hay noticias de Juan Pablo Velasco.
+            </p>
           )}
           <hr className="border-t border-gray-300 mt-6" />
         </div>
@@ -788,7 +944,9 @@ export default function HomePage() {
       {/* Noticias OTROS */}
       {activeSection === "all" || activeSection === "otros" ? (
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4 text-gray-700">Otras Noticias</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-700">
+            Otras Noticias
+          </h2>
           {noticiasOtros.length > 0 ? (
             <div className="grid gap-6">
               {noticiasOtros.map((noticia) => {
@@ -803,11 +961,18 @@ export default function HomePage() {
                     key={noticia.id}
                     className="border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition flex flex-col h-full"
                   >
-                    <h2 className="text-lg sm:text-xl font-semibold mb-1">{noticia.titulo}</h2>
+                    <h2 className="text-lg sm:text-xl font-semibold mb-1">
+                      {noticia.titulo}
+                    </h2>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2">
                       Publicado por{" "}
-                      <span className="font-medium">{noticia.autor || "Desconocido"}</span> el{" "}
-                      {new Date(noticia.fecha_publicacion ?? "").toLocaleDateString()}
+                      <span className="font-medium">
+                        {noticia.autor || "Desconocido"}
+                      </span>{" "}
+                      el{" "}
+                      {new Date(
+                        noticia.fecha_publicacion ?? ""
+                      ).toLocaleDateString()}
                     </p>
 
                     {noticia.imagen && (
@@ -822,7 +987,9 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    <p className="text-sm sm:text-base text-gray-700 flex-1">{noticia.resumen}</p>
+                    <p className="text-sm sm:text-base text-gray-700 flex-1">
+                      {noticia.resumen_ia || noticia.resumen}
+                    </p>
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 gap-2">
                       <a
@@ -841,7 +1008,11 @@ export default function HomePage() {
                             estadoActual === "aprobado"
                               ? "bg-green-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-green-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCheckCircle className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Aprobar"}
@@ -853,7 +1024,11 @@ export default function HomePage() {
                             estadoActual === "rechazado"
                               ? "bg-red-600 text-white"
                               : "bg-gray-200 text-gray-700 hover:bg-red-400"
-                          } ${estaActualizando ? "opacity-60 cursor-not-allowed" : ""}`}
+                          } ${
+                            estaActualizando
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
                         >
                           <MdCancel className="text-lg" />
                           {estaActualizando ? "Actualizando..." : "Rechazar"}
