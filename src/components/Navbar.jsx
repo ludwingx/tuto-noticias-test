@@ -18,6 +18,9 @@ export default async function Navbar() {
             alt="Tuto Logo"
             width={140}
             height={40}
+            className="object-contain" // Añade esto
+            priority // Añade esto para imágenes importantes
+            unoptimized={process.env.NODE_ENV === "production"} // Solución para producción
           />
         </Link>
 
@@ -28,7 +31,9 @@ export default async function Navbar() {
             alt="Libre Logo"
             width={110}
             height={40}
+            className="object-contain" // Añade esto
             priority
+            unoptimized={process.env.NODE_ENV === "production"} // Solución para producción
           />
         </div>
 
