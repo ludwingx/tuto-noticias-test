@@ -5,60 +5,73 @@ const prisma = new PrismaClient();
 
 export async function GET(request) {
   try {
-    // Obtener fecha/hora actual en zona horaria de Bolivia
-    const nowBolivia = DateTime.now().setZone('America/La_Paz');
+    // 1. Obtener la fecha/hora actual en UTC
+    const nowUTC = DateTime.utc();
     
-    // Crear fecha de inicio (8:00 am hoy en Bolivia)
-    const today8amBolivia = nowBolivia.set({ 
-      hour: 8, 
-      minute: 30, 
-      second: 0, 
-      millisecond: 0 
-    });
-
-    // Convertir a UTC para la consulta en la base de datos
-    const today8amUTC = today8amBolivia.toUTC().toISO();
-
-    console.log('Fecha 8:00 am Bolivia:', today8amBolivia.toString());
-    console.log('Fecha 8:00 am UTC:', today8amUTC);
-
+    // 2. Mostrar hora actual en Bolivia para referencia
+    const nowBolivia = nowUTC.setZone('America/La_Paz');
+    console.log('Hora actual Bolivia:', nowBolivia.toString());
+    
+    // 3. Consultar las últimas 24 horas de noticias (sin filtro de hora específica)
     const noticias = await prisma.news.findMany({
       where: {
         created_at: {
-          gte: today8amUTC,
-        },
+          gte: nowUTC.minus({ hours: 24 }).toJSDate(),
+          lte: nowUTC.toJSDate()
+        }
       },
       orderBy: {
-        created_at: 'desc',
-      },
+        created_at: 'desc'
+      }
+      // Eliminamos el include de categoria ya que parece no existir
     });
 
-    console.log('Noticias encontradas:', noticias.length);
-    console.log('Rango de fechas:', 
-      noticias[0]?.created_at, 
-      'a', 
-      noticias[noticias.length - 1]?.created_at
-    );
+    console.log('=== RESULTADOS ===');
+    console.log(`Noticias encontradas: ${noticias.length}`);
+    console.log('Rango de consulta UTC:');
+    console.log('Desde:', nowUTC.minus({ hours: 24 }).toString());
+    console.log('Hasta:', nowUTC.toString());
+
+    // 4. Si no hay resultados, mostrar diagnóstico completo
+    if (noticias.length === 0) {
+      const totalNoticias = await prisma.news.count();
+      console.log('Total de noticias en BD:', totalNoticias);
+      
+      // Mostrar las últimas 10 noticias sin filtro de tiempo
+      const ultimasNoticias = await prisma.news.findMany({
+        take: 10,
+        orderBy: { created_at: 'desc' },
+        select: { 
+          id: true,
+          titulo: true,
+          created_at: true,
+          categoria: true // Si este campo existe como string, no como relación
+        }
+      });
+      
+      console.log('Últimas noticias registradas (sin filtro):');
+      ultimasNoticias.forEach(n => {
+        const fechaBolivia = DateTime.fromJSDate(n.created_at).setZone('America/La_Paz');
+        console.log(`- ID: ${n.id}, Título: ${n.titulo}, Hora Bolivia: ${fechaBolivia.toString()}, Categoría: ${n.categoria || 'N/A'}`);
+      });
+    }
 
     return new Response(JSON.stringify(noticias), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     });
+
   } catch (error) {
     console.error('Error en GET /api/noticias:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Error al obtener noticias', 
-        detail: error.message 
+        error: 'Error al obtener noticias',
+        details: error.message
       }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
-
 
 // PUT: Aprobar o rechazar noticia
 export async function PUT(request) {
@@ -75,7 +88,8 @@ export async function PUT(request) {
 
     const noticiaActualizada = await prisma.news.update({
       where: { id: Number(id) },
-      data: { estado },
+      data: { estado }
+      // Eliminamos el include de categoria
     });
 
     return new Response(JSON.stringify(noticiaActualizada), {
