@@ -5,88 +5,100 @@ const prisma = new PrismaClient();
 
 export async function GET(request) {
   try {
-    // Hora actual en Bolivia
-    const nowBolivia = DateTime.now().setZone("America/La_Paz");
-    console.log("Hora actual Bolivia:", nowBolivia.toISO());
+    // 1. Configuración de zonas horarias
+    const zonaBolivia = "America/La_Paz";
+    
+    // 2. Obtener tiempos actuales
+    const ahoraUTC = DateTime.utc();
+    const ahoraBolivia = ahoraUTC.setZone(zonaBolivia);
+    
+    console.log(`[DEBUG] Hora actual UTC: ${ahoraUTC.toISO()}`);
+    console.log(`[DEBUG] Hora actual Bolivia: ${ahoraBolivia.toISO()}`);
 
-    // Definir corte a las 8:30 AM Bolivia
-    const corteHoy = nowBolivia.set({ hour: 8, minute: 30, second: 0, millisecond: 0 });
+    // 3. Definir el corte a las 8:30 AM Bolivia
+    const corteHoyBolivia = ahoraBolivia.set({ 
+      hour: 4, 
+      minute: 30, 
+      second: 0, 
+      millisecond: 0 
+    });
+    const corteHoyUTC = corteHoyBolivia.toUTC();
+    
+    console.log(`[DEBUG] Corte hoy Bolivia: ${corteHoyBolivia.toISO()}`);
+    console.log(`[DEBUG] Corte hoy UTC: ${corteHoyUTC.toISO()}`);
 
-    let inicioBolivia, finBolivia;
-    if (nowBolivia < corteHoy) {
-      inicioBolivia = corteHoy.minus({ days: 1 });
-      finBolivia = corteHoy;
+    // 4. Determinar rango de búsqueda
+    let inicioBusquedaUTC, finBusquedaUTC;
+    
+    if (ahoraBolivia >= corteHoyBolivia) {
+      // Si ya pasó 8:30 AM hoy, buscar desde 8:30 AM hoy hasta 8:30 AM mañana
+      inicioBusquedaUTC = corteHoyUTC;
+      finBusquedaUTC = corteHoyUTC.plus({ days: 1 });
     } else {
-      inicioBolivia = corteHoy;
-      finBolivia = corteHoy.plus({ days: 1 });
+      // Si aún no son las 8:30 AM hoy, buscar desde 8:30 AM de ayer hasta 8:30 AM hoy
+      inicioBusquedaUTC = corteHoyUTC.minus({ days: 1 });
+      finBusquedaUTC = corteHoyUTC;
     }
 
-    const inicioUTC = inicioBolivia.toUTC().toJSDate();
-    const finUTC = finBolivia.toUTC().toJSDate();
+    console.log(`[DEBUG] Rango de búsqueda UTC: ${inicioBusquedaUTC.toISO()} - ${finBusquedaUTC.toISO()}`);
+    console.log(`[DEBUG] Equivalente Bolivia: ${inicioBusquedaUTC.setZone(zonaBolivia).toISO()} - ${finBusquedaUTC.setZone(zonaBolivia).toISO()}`);
 
-    console.log("Rango de consulta (Bolivia):", inicioBolivia.toISO(), "a", finBolivia.toISO());
-    console.log("Rango de consulta (UTC):", inicioUTC.toISOString(), "a", finUTC.toISOString());
-
-    // Primero intento con el rango definido por corte 8:30 am
-    let noticias = await prisma.news.findMany({
+    // 5. Consulta a la base de datos
+    const noticias = await prisma.news.findMany({
       where: {
         created_at: {
-          gte: inicioUTC,
-          lt: finUTC,
-        },
+          gte: inicioBusquedaUTC.toJSDate(),
+          lt: finBusquedaUTC.toJSDate() // Usamos lt (menor que) en lugar de lte (menor o igual)
+        }
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { created_at: "desc" }
     });
 
-    // Si no hay noticias en ese rango, buscar en las últimas 24 horas UTC (fallback)
-    if (noticias.length === 0) {
-      const nowUTC = DateTime.utc();
-      noticias = await prisma.news.findMany({
-        where: {
-          created_at: {
-            gte: nowUTC.minus({ hours: 24 }).toJSDate(),
-            lte: nowUTC.toJSDate(),
-          },
-        },
-        orderBy: { created_at: "desc" },
-      });
+    // 6. Transformar las fechas para el frontend
+    const noticiasConFechaFormateada = noticias.map(noticia => {
+      const fechaUTC = DateTime.fromJSDate(noticia.created_at).toUTC();
+      const fechaBolivia = fechaUTC.setZone(zonaBolivia);
+      
+      return {
+        ...noticia,
+        created_at: fechaBolivia.toISO(),
+        created_at_bolivia: fechaBolivia.toFormat("dd/MM/yyyy HH:mm:ss"),
+        created_at_utc: fechaUTC.toISO()
+      };
+    });
 
-      console.log("No hubo noticias en el rango 8:30 am, buscando últimas 24 horas UTC...");
-    }
+    console.log(`[DEBUG] Noticias encontradas: ${noticiasConFechaFormateada.length}`);
+    noticiasConFechaFormateada.forEach(n => {
+      console.log(`- ID: ${n.id}, Título: ${n.titulo.substring(0, 20)}...`);
+      console.log(`  Hora Bolivia: ${n.created_at_bolivia}`);
+      console.log(`  Hora UTC: ${n.created_at_utc}`);
+    });
 
-    console.log("Noticias encontradas:", noticias.length);
+    // 7. Enviar respuesta con cabeceras que eviten caché
+    const headers = {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, max-age=0",
+      "Pragma": "no-cache"
+    };
 
-    if (noticias.length === 0) {
-      // Mostrar últimas 10 noticias sin filtro
-      const ultimasNoticias = await prisma.news.findMany({
-        take: 10,
-        orderBy: { created_at: "desc" },
-        select: { id: true, titulo: true, created_at: true, categoria: true },
-      });
-
-      console.log("Últimas noticias registradas (sin filtro):");
-      ultimasNoticias.forEach((n) => {
-        const fechaBolivia = DateTime.fromJSDate(n.created_at).setZone("America/La_Paz");
-        console.log(
-          `- ID: ${n.id}, Título: ${n.titulo}, Hora Bolivia: ${fechaBolivia.toFormat("dd/MM/yyyy HH:mm")}, Categoría: ${n.categoria || "N/A"}`
-        );
-      });
-    }
-
-    return new Response(JSON.stringify(noticias), {
+    return new Response(JSON.stringify(noticiasConFechaFormateada), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers
     });
   } catch (error) {
-    console.error("Error en GET /api/noticias:", error);
+    console.error("[ERROR] En GET /api/noticias:", error);
     return new Response(
-      JSON.stringify({ error: "Error al obtener noticias", details: error.message }),
+      JSON.stringify({ 
+        error: "Error al obtener noticias", 
+        details: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
 
-// PUT se mantiene igual
+// PUT permanece igual
 export async function PUT(request) {
   try {
     const body = await request.json();

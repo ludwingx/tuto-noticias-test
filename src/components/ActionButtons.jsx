@@ -8,6 +8,7 @@ export default function ActionButtons({
   generando,
   hayNoticias,
   contador,
+  webhookMessage, // <-- agrega aquí
   showFullButtons = false,
 }) {
   return (
@@ -29,14 +30,13 @@ export default function ActionButtons({
           )}
         </button>
       )}
-      
       <button
         onClick={ejecutarWebhook}
         disabled={ejecutandoWebhook || hayNoticias}
         className="flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 transition text-sm sm:text-base"
       >
         {ejecutandoWebhook
-          ? "Ejecutando..."
+          ? webhookMessage || "Ejecutando..." // <-- muestra el mensaje dinámico
           : hayNoticias && contador !== null
           ? `Disponible en ${contador.horas.toString().padStart(2, "0")}:${
               contador.minutos.toString().padStart(2, "0")
