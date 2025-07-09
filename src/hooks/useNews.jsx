@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 
+
 export function useNews() {
   const [noticias, setNoticias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [ejecutandoWebhook, setEjecutandoWebhook] = useState(false);
   const [webhookError, setWebhookError] = useState(null);
-  const [timer, setTimer] = useState(20);
   const [waiting, setWaiting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [noNews, setNoNews] = useState(false);
@@ -14,8 +14,9 @@ export function useNews() {
   const [contador, setContador] = useState(null);
   const [horaLocal, setHoraLocal] = useState("");
   const [mostrarModalCargaNoticias, setMostrarModalCargaNoticias] = useState(false);
-  const [webhookMessage, setWebhookMessage] = useState("");
-
+  const [procesoActual, setProcesoActual] = useState("");
+  const [tiempoEspera, setTiempoEspera] = useState(0); // Nuevo estado para el tiempo
+  // Filtrar noticias por categoría
   const noticiasTuto = noticias.filter(
     (n) => (n.categoria || "").toUpperCase() === "TUTO"
   );
@@ -26,7 +27,6 @@ export function useNews() {
     const cat = (n.categoria || "").toUpperCase();
     return cat !== "TUTO" && cat !== "JP";
   });
-
   const hayNoticias = noticias.length > 0;
 
   useEffect(() => {
@@ -50,6 +50,7 @@ export function useNews() {
     fetchNoticias();
   }, []);
 
+  // Efecto para el contador de recarga
   useEffect(() => {
     let interval;
     function updateContador() {
@@ -68,88 +69,136 @@ export function useNews() {
     };
   }, [hayNoticias]);
 
-  async function esperarCambioNoticias(condicionCambio, maxIntentos = 3) {
-    setWaiting(true);
-    setShowModal(true);
-    setTimer(20);
+  async function esperarCambioNoticias(condicionCambio, maxIntentos = 3, mostrarModal = true, tiempoTotal = 0) {
+    if (mostrarModal) {
+      setWaiting(true);
+      setShowModal(true);
+    }
     setNoNews(false);
     setIntentosSinNoticias(0);
 
+    let foundCambio = false;
     let intentos = 0;
+    let tiempoRestante = tiempoTotal;
+
+    // Actualizar el contador cada segundo
+    const intervalId = setInterval(() => {
+      if (tiempoRestante > 0) {
+        tiempoRestante--;
+        setTiempoEspera(tiempoRestante);
+      }
+    }, 1000);
 
     try {
-      while (intentos < maxIntentos) {
-        for (let t = 20; t > 0; t--) {
-          setTimer(t);
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-        setTimer(0);
-
+      while (intentos < maxIntentos && !foundCambio) {
         const noticiasRes = await fetch("/api/noticias");
         const nuevasNoticias = await noticiasRes.json();
 
         if (condicionCambio(nuevasNoticias)) {
           setNoticias(nuevasNoticias);
-          setWebhookMessage("✅ Noticias cargadas correctamente");
-          break;
+          foundCambio = true;
         } else {
           intentos++;
           setIntentosSinNoticias(intentos);
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
 
-      setShowModal(false);
-      setWaiting(false);
+      if (!foundCambio) {
+        setNoNews(true);
+      }
     } catch (err) {
       console.error(err);
       setWebhookError("Error al esperar cambios en las noticias.");
-      setShowModal(false);
-      setWaiting(false);
-    }
-  }
-
-  async function ejecutarWebhook() {
-    setEjecutandoWebhook(true);
-    setWebhookError(null);
-    setWebhookMessage("Buscando noticias");
-    try {
-      const res = await fetch(
-        "https://n8n-torta-express.qnfmlx.easypanel.host/webhook-test/a21e1a7f-73f2-44d0-b4bc-2176ff690234",
-        { method: "POST" }
-      );
-      if (!res.ok) throw new Error("Error al ejecutar el webhook");
-      const webhookData = await res.json();
-      if (webhookData?.process === "Extrayendo y Filtrando Noticias") {
-        setWebhookMessage("Extrayendo noticias");
-      } else if (webhookData?.process === "Procesando Noticias Filtradas") {
-        setWebhookMessage("Procesando noticias filtradas");
-      }
-      await esperarCambioNoticias(
-        (nuevasNoticias) => Array.isArray(nuevasNoticias) && nuevasNoticias.length > 0
-      );
-    } catch (err) {
-      setWebhookError("Error al ejecutar el flujo de N8N.");
     } finally {
-      setEjecutandoWebhook(false);
+      clearInterval(intervalId);
+      if (mostrarModal) {
+        setWaiting(false);
+        setShowModal(false);
+      }
+      setIntentosSinNoticias(0);
     }
   }
 
+async function ejecutarWebhook() {
+  setEjecutandoWebhook(true);
+  setWebhookError(null);
+  setMostrarModalCargaNoticias(true);
+  setProcesoActual("Buscando noticias...");
+  setTiempoEspera(0);
+
+  try {
+    const res = await fetch(
+      "https://n8n-torta-express.qnfmlx.easypanel.host/webhook-test/a21e1a7f-73f2-44d0-b4bc-2176ff690234",
+      { 
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    // Mostrar el response completo en consola
+    console.log("Response del webhook:", {
+      status: res.status,
+      headers: Object.fromEntries(res.headers.entries()),
+      data: await res.clone().json().catch(() => "No se pudo parsear como JSON")
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Error al ejecutar el webhook");
+    }
+    
+    const responseData = await res.json();
+    console.log("Datos procesados del webhook:", responseData); // Mostrar datos procesados
+    
+    setProcesoActual(responseData.process || "Procesando noticias...");
+    
+    
+    // Asegúrate de que amountNews es un número
+    const cantidadNoticias = parseInt(responseData.amountNews) || 0;
+    const tiempoCalculado = cantidadNoticias * 30;
+    
+    console.log(`Tiempo calculado: ${tiempoCalculado}s`); // Verifica en consola
+    
+    setTiempoEspera(tiempoCalculado); // Actualiza el estado
+    setProcesoActual(responseData.process || "Procesando noticias...");
+    
+    await esperarCambioNoticias(
+      (nuevasNoticias) => Array.isArray(nuevasNoticias) && nuevasNoticias.length > 0,
+      3,
+      true,
+      tiempoCalculado
+    );
+    
+  } catch (err) {
+    console.error("Error completo en ejecutarWebhook:", err);
+    setWebhookError(err.message);
+    setProcesoActual("Error al buscar noticias");
+  } finally {
+    setEjecutandoWebhook(false);
+  }
+}
+
+  
   async function manejarEstado(id, nuevoEstado) {
+    // Aplica el cambio local optimista
     setNoticias((prev) =>
       prev.map((n) =>
         n.id === id ? { ...n, estado: nuevoEstado.toUpperCase() } : n
       )
     );
-
+  
     setActualizandoEstado((prev) => ({ ...prev, [id]: true }));
-
+  
     try {
       const res = await fetch("/api/noticias", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, estado: nuevoEstado.toUpperCase() }),
       });
-
+  
       if (!res.ok) throw new Error("Error al actualizar estado");
       await res.json();
     } catch (err) {
@@ -158,7 +207,7 @@ export function useNews() {
       setActualizandoEstado((prev) => ({ ...prev, [id]: false }));
     }
   }
-
+  
   function getTiempoRestanteHasta830amSiguiente() {
     const ahora = new Date();
     const ahoraBolivia = new Date(
@@ -192,13 +241,14 @@ export function useNews() {
     waiting,
     showModal,
     mostrarModalCargaNoticias,
-    timer,
     noNews,
     intentosSinNoticias,
     webhookError,
     contador,
     horaLocal,
     hayNoticias,
-    webhookMessage,
+    procesoActual,
+    tiempoEspera, // Asegúrate de incluir este estado en el return
   };
+
 }

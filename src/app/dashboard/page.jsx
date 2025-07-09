@@ -4,7 +4,6 @@ import { useState } from "react";
 import NewsSection from "@/components/NewsSection";
 import ActionButtons from "@/components/ActionButtons";
 import Filters from "@/components/Filters";
-import Timer from "@/components/Timer";
 import LoadingModal from "@/components/LoadingModal";
 import { useNews } from "@/hooks/useNews";
 import { usePDFGenerator } from "@/hooks/usePDFGenerator";
@@ -21,16 +20,14 @@ export default function HomePage() {
     actualizandoEstado,
     ejecutandoWebhook,
     waiting,
-    showModal,
     mostrarModalCargaNoticias,
-    timer,
-    noNews,
-    intentosSinNoticias,
+    tiempoEspera,
     webhookError,
     contador,
     horaLocal,
     hayNoticias,
     webhookMessage, // ✅ nuevo
+    procesoActual,
   } = useNews();
 
   const { generarBoletin, generando, errorGen } = usePDFGenerator(noticias);
@@ -55,15 +52,15 @@ export default function HomePage() {
         </p>
 
         <ActionButtons
-  ejecutarWebhook={ejecutarWebhook}
-  generarBoletin={generarBoletin}
-  ejecutandoWebhook={ejecutandoWebhook}
-  generando={generando}
-  hayNoticias={hayNoticias}
-  contador={contador}
-  webhookMessage={webhookMessage}
-  // showFullButtons={showFullButtons}  <-- elimina o comenta esta línea
-/>
+          ejecutarWebhook={ejecutarWebhook}
+          generarBoletin={generarBoletin}
+          ejecutandoWebhook={ejecutandoWebhook}
+          generando={generando}
+          hayNoticias={hayNoticias}
+          contador={contador}
+          webhookMessage={webhookMessage}
+          // showFullButtons={showFullButtons}  <-- elimina o comenta esta línea
+        />
 
         <p className="text-gray-400 mt-2 text-sm">Hora local: {horaLocal}</p>
 
@@ -86,9 +83,9 @@ export default function HomePage() {
           </div>
         )}
 
-{showModal && (
-  <LoadingModal timer={timer} message={webhookMessage} />
-)}
+        {mostrarModalCargaNoticias && (
+          <LoadingModal proceso={procesoActual} tiempoEspera={tiempoEspera} />
+        )}
       </main>
     );
   }
@@ -162,9 +159,9 @@ export default function HomePage() {
         />
       </SectionWrapper>
 
-      {showModal && mostrarModalCargaNoticias && (
-  <LoadingModal timer={timer} message={webhookMessage} />
-)}
+      {mostrarModalCargaNoticias && (
+        <LoadingModal proceso={procesoActual} tiempoEspera={tiempoEspera} />
+      )}
     </main>
   );
 }
