@@ -39,6 +39,14 @@ model ArticuloBruto {
   estado EstadoArticulo @default(SIN_TRABAJAR)
   creado DateTime       @default(now())
 }
+model ProcesosWorkflow {
+  id         Int      @id @default(autoincrement())
+  email      String  
+  mensaje    String
+  estado     String
+  cantidad   Int
+  created_at DateTime @default(now())
+}
 
 enum Rol {
   ADMINISTRADOR
